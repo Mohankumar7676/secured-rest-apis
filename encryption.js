@@ -3,38 +3,41 @@ const jwt = require('jsonwebtoken');
 
 // aes-128-cbc hs256
 
-const AES_KEY = crypto.randomBytes(16); // 128-bit key (16 bytes)
-const IV = crypto.randomBytes(16); // 16-byte IV for CBC mode
-const JWT_SECRET = "your_jwt_secret_key"; // HS256 secret key
+let AES_KEY = "0123456789abcdef"; // 128-bit key (16 bytes)
+AES_KEY = Buffer.from(AES_KEY, "utf-8");
+
+console.log("AES_KEY", AES_KEY)
 
 // Encrypt function (AES-128-CBC)
 function encrypt(jsonObject) {
-    const text = JSON.stringify(jsonObject);
-    const cipher = crypto.createCipheriv('aes-128-cbc', AES_KEY, IV);
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    return encrypted;
+    const dataToEncrypt = JSON.stringify(jsonObject);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-128-cbc',AES_KEY, iv);
+    let encryptedData = cipher.update(dataToEncrypt, 'utf-8', 'base64');
+    encryptedData += cipher.final('base64');
+    const token = jwt.sign({ iv, encryptedData }, AES_KEY, { algorithm: 'HS256' });
+    console.log('Encrypted Token:', token);
+    console.log('encryptedData:', encryptedData);
+    return token;
 }
 
-// Decrypt function (AES-128-CBC)
-function decrypt(encryptedText) {
-    const decipher = crypto.createDecipheriv('aes-128-cbc', AES_KEY, IV);
-    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return JSON.parse(decrypted); // Convert back to JSON
-}
-
-// Sign encrypted data (HS256)
-function signData(encryptedText) {
-    return jwt.sign({ data: encryptedText }, JWT_SECRET, { algorithm: 'HS256' });
-}
-
-// Verify signature (HS256)
-function verifySignature(token) {
+function decrypt(token) {
     try {
-        return jwt.verify(token, JWT_SECRET);
+    // Verify and decode the JWT
+    const decoded = jwt.verify(token, AES_KEY);
+    // Convert iv from base64 to Buffer
+    const iv = Buffer.from(decoded.iv.data);
+    const encryptedData = decoded.encryptedData;
+    
+    // Create the decipher object
+    const decipher = crypto.createDecipheriv('aes-128-cbc', AES_KEY, iv);
+    let decryptedData = decipher.update(encryptedData, 'base64', 'utf-8');
+    decryptedData += decipher.final('utf-8');
+    
+    return decryptedData;
     } catch (err) {
-        return null;
+    console.error('Decryption failed:', err);
+    return null;
     }
 }
 
@@ -51,19 +54,20 @@ const jsonData = {
     "ifsc_code": "CNRB0000000",
     "checksum": "",
     "additionalNo": " ",
-    "sid": "sida1"
+    "sid": "sida1",
+    "status": "SUCCESS"
 };
 
 // Encrypt and sign
 const encryptedText = encrypt(jsonData);
-const signedToken = signData(encryptedText);
 
 // Decrypt and verify
 const decryptedData = decrypt(encryptedText);
-const verifiedData = verifySignature(signedToken);
 
 console.log("Original JSON:", jsonData);
 console.log("Encrypted:", encryptedText);
 console.log("Decrypted JSON:", decryptedData);
-console.log("Signed Token:", signedToken);
-console.log("Verified Data:", verifiedData);
+
+
+// sample token
+// eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpdiI6eyJ0eXBlIjoiQnVmZmVyIiwiZGF0YSI6WzE5MiwzMCw5OCw0NSwyNTMsMTg0LDEwMywxOTAsMTgxLDE4Myw5MCwxMTgsMTgzLDEzNiw1OCwyMzFdfSwiZW5jcnlwdGVkRGF0YSI6IjVrRjNhdndRdWwzZUVoOWdsYU1wNDNCZjlxbGJIQTRmc1JGQkpJR1JwKzhSNFNqZE5RZUhudjZ2TFRQTFRIOUNROFBrVFF1TytlTHRPRkpyNnBaZ1pVOUNNZC9oWUx0SGJiRU1GcFE3ajZTRzJGbEZtSXQ3NzRidGlsajhHS2hDUllWelhKb2JJL3FtcG5ObUdjN1IxRm5UVS9pc3NCdzdUaU1uTGRJS2xpZXRoMmhEZjN5bFlLaXJlTUNBV0NBVCszUjUwNFV0TXdBRmYzcm1xakFTck9KdGhKZUVqQU9pbXRwMEJBUkhlVkZlUlp6dDBTbGN1Nk9ERUhzS3hYbTZzakJmSFdBMysyZWFXdExwVWNuTTJYQUVrRUhVbGVQclFQVDV5c1ZNYU5iYkJBd1EwQ0RXQlQrS3dYS0hhb21qd3NiQ0IyVmFzeVlkQUZ4NEtTbkxZSUo5ck1uQitKSXBxY21XWllSVXk3TT0iLCJpYXQiOjE3NDEwNTY5NjR9.XhSqrDSNkYJoiqHgq9eemqrLHh2YVgPOq5HBh9YQ0C4

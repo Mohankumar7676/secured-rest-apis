@@ -30,8 +30,7 @@ async function processQRCallback(request, response) {
       ifscCode: decryptedData.ifsc_code,
       checksum: decryptedData.checksum,
       additionalNo: decryptedData.additionalNo,
-      sid: decryptedData.sid,
-      status: "SUCCESS"
+      sid: decryptedData.sid
     };
     if(mappedData.status === "SUCCESS") {
      return response.status(StatusCodes.OK).json(mappedData);
